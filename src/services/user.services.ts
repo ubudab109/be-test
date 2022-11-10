@@ -66,11 +66,10 @@ export class UserService {
       }
 
       await queryRunner.commitTransaction();
-      
+
       return responseData;
 
     } catch (err) {
-      console.log(err);
       responseData = {
         status: 500,
         message: 'Internal Server Error',
