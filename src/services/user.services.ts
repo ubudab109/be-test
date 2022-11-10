@@ -66,6 +66,7 @@ export class UserService {
       }
 
       await queryRunner.commitTransaction();
+      
       return responseData;
 
     } catch (err) {
