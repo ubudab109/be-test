@@ -16,7 +16,15 @@ export class UserService {
   }
 
 
-  public resetPassword = async (user: User, newPassword: string, oldPassword: string) => {
+
+  /**
+   * Change user password
+   * @param {User} user 
+   * @param {string} newPassword 
+   * @param {string} oldPassword 
+   * @returns 
+   */
+  public resetPassword = async (user: User, newPassword: string, oldPassword: string): Promise<ResponseData> => {
     const queryRunner = AppDataSource.createQueryRunner();
     let responseData: ResponseData;
     await queryRunner.startTransaction();
@@ -56,6 +64,8 @@ export class UserService {
           data: null,
         };
       }
+
+      await queryRunner.commitTransaction();
       return responseData;
 
     } catch (err) {
@@ -72,6 +82,12 @@ export class UserService {
     }
   };
 
+  /**
+   * Update User Data
+   * @param {number} id
+   * @param {User} user
+   * @return {Promise<ResponseData>}
+   */
   public updateUserData = async (id: number, user: User): Promise<ResponseData> => {
     let responseData: ResponseData;
 
