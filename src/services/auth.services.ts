@@ -53,7 +53,7 @@ export class AuthService {
    * @param {User} user 
    * @param {VerificationType} type 
    */
-  public sendEmailToUser = async (user: User, type: VerificationType): Promise<boolean> => {
+  public sendEmailToUser = async (user: User): Promise<boolean> => {
     const helper: Helper = new Helper();
     const userData = await this.getUserByEmail(user.email);
     const token = helper.generateVerificationEmailToken();
@@ -64,14 +64,14 @@ export class AuthService {
         .delete()
         .from(UserVerification)
         .where('userId = :userId', { userId: userData.id })
-        .andWhere('verificationType = :type', { type: type }).execute();
+        .execute();
 
       // SAVE USER VERIFICATION DATA
       const createVerification = await this.verificationRepository.save({
         user: userData,
         expirationToken: helper.addDays(1),
         token: token,
-        verificationType: type,
+        verificationType: VerificationType.EMAIL,
       });
 
       // SENDING EMAIL VERIFICATION
@@ -85,7 +85,7 @@ export class AuthService {
 
   };
 
-   
+
   /**
    * The above code is a function that will be called when a user is trying to login 
    * or register using Facebook.
@@ -165,7 +165,7 @@ export class AuthService {
       data: response,
     };
     return responseData;
-    
+
 
   };
 
@@ -383,7 +383,7 @@ export class AuthService {
       const create = await this.userRepository.save(data);
 
       // SEND EMAIL VERIFICATION
-      await this.sendEmailToUser(create, VerificationType.EMAIL);
+      await this.sendEmailToUser(create);
 
       await queryRunner.commitTransaction();
 
@@ -456,58 +456,58 @@ export class AuthService {
 
         // CHECK IF USER DATA EXISTS
         if (userData) {
-          /**
-           * CHECK IF VERICIATION TYPE IS EMAIL
-           * THEN UPDATE USER DATA 'IS VERIFIED' TO TRUE
-           */
-          if (verificationData.verificationType === VerificationType.EMAIL) {
-            await this.userRepository.update(userData.id, { isEmailVerified: true });
-          }
-        }
+          await this.userRepository.update(userData.id, { isEmailVerified: true });
+          // UPDATE VERIFICATION DATA 'IS USED' TO TRUE
+          await this.verificationRepository.createQueryBuilder()
+            .update({
+              isUsed: true,
+            })
+            .where({ id: verificationData.id })
+            .returning('*')
+            .execute();
 
-        // UPDATE VERIFICATION DATA 'IS USED' TO TRUE
-        await this.verificationRepository.createQueryBuilder()
-          .update({
-            isUsed: true,
-          })
-          .where({ id: verificationData.id })
-          .returning('*')
-          .execute();
+          const user = verificationData.user;
+          // SIGN JWT, VALID FOR 24 HOUR
+          const token = jwt.sign(
+            { userId: user.id, email: user.email },
+            jwtConfig.jwtSecret,
+            { expiresIn: '24h' },
+          );
 
-        const user = verificationData.user;
-        // SIGN JWT, VALID FOR 1 HOUR
-        const token = jwt.sign(
-          { userId: user.id, email: user.email },
-          jwtConfig.jwtSecret,
-          { expiresIn: '1h' },
-        );
+          // SAVE CURRENT SESSION
+          await this.saveSessionData(user);
 
-        // SAVE CURRENT SESSION
-        await this.saveSessionData(user);
-
-        // ADD TIMES LOGGED IN
-        await this.userRepository.increment({
-          id: user.id,
-        }, 'timesLoggedIn', 1);
-
-        responseData = {
-          status: 200,
-          message: 'Verification Found',
-          data: {
+          // ADD TIMES LOGGED IN
+          await this.userRepository.increment({
             id: user.id,
-            fullname: user.fullname,
-            isEmailVerified: true,
-            email: user.email,
-            token: token,
-          },
-        };
+          }, 'timesLoggedIn', 1);
+
+          responseData = {
+            status: 200,
+            message: 'Verification Found',
+            data: {
+              id: user.id,
+              fullname: user.fullname,
+              isEmailVerified: true,
+              email: user.email,
+              token: token,
+            },
+          };
+        } else {
+          responseData = {
+            status: 200,
+            message: 'Verification Not Found or Expired',
+            data: null,
+          };
+        }
       }
+
 
     }
 
     return responseData;
   };
-  
+
   /**
    * UPDATE SESSION DATA 
    * THIS FUNCTION MAY BE WILL USED IN EVERY LOGOUT REQUEST

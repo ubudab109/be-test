@@ -5,7 +5,6 @@ import {
 } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../entity/User';
-import { VerificationType } from '../utils/verification_type.enum';
 import { AuthService } from '../services/auth.services';
 import { UserVerification } from '../entity/UserVerification';
 import { ResponseData } from '../interfaces/response.interfaces';
@@ -56,12 +55,12 @@ export class AuthController {
   public resendVerification = async (req: Request, res: Response) => {
     const request = req.body;
     const email = request.email as User;
-    let isEmailSend = await this.services.sendEmailToUser(email, 'email' as VerificationType);
+    let isEmailSend = await this.services.sendEmailToUser(email);
     let response: ResponseData;
     if (isEmailSend) {
       response = {
         status: 200,
-        message: 'Verification sended',
+        message: 'Verification send. Kindly check Your inbox or spam email to confirm the registration.',
         data: true,
       };
     } else {
